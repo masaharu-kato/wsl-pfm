@@ -76,7 +76,8 @@ delete_port() {
   # At least one of _lis_port or _con_port is required.
   _lis_port=$1 # Listen port
   _con_port=$2 # Connect port
-  if [[ -z $_con_port ]]; then
+  # echo "delete_port $1 $2"
+  if [[ -n $_con_port ]]; then
     delete_distro_port "$_lis_port" "$_con_port"
   else
     delete_host_port "$_lis_port" "$_con_port"
@@ -87,11 +88,13 @@ delete_port() {
 delete_distro_port() {
   _lis_port=$1 # Listen port, optional
   _con_port=$2 # Connect port, required
+  # echo "delete_distro_port $1 $2"
   if [[ -e "$DIR_DISTRO_PORTS/$_con_port" ]]; then
-    if [[ -z $lis_port ]]; then
+    if [[ -n $_lis_port ]]; then
       delete_host_port "$_lis_port" "$_con_port"
     else
-      for _lis_port in $("$DIR_DISTRO_PORTS/$_con_port/*"); do
+      for _lis_port_path in "$DIR_DISTRO_PORTS/$_con_port"/*; do
+        _lis_port=${_lis_port_path##*/}
         delete_host_port "$_lis_port" "$_con_port"
       done
     fi
@@ -104,6 +107,7 @@ delete_distro_port() {
 delete_host_port() {
   _lis_port=$1 # Listen port, required
   _con_port=$2 # Connect port, optional
+  # echo "delete_host_port $1 $2"
   if [[ -e "$DIR_HOST_PORTS/$_lis_port" ]]; then
     _host_distro=$(cat "$DIR_HOST_PORTS/$_lis_port/distro")
     _host_con_port=$(cat "$DIR_HOST_PORTS/$_lis_port/con-port")
@@ -154,7 +158,11 @@ if [[ $mode == "add" ]]; then
       # echo "Notice: Host port $lis_port is already set to connect port $_host_con_port." 1>&2
       exit 0
     fi
-    error_exit "Host port $lis_port already taken to connect port $_host_con_port from disro $_host_distro" 11
+    if [[ "$_host_distro" == "$DISTRO" ]]; then
+      error_exit "Host port $lis_port already taken to connect port $_host_con_port" 11
+    else
+      error_exit "Host port $lis_port already taken to connect port $_host_con_port from disro $_host_distro" 11
+    fi
   fi
   mkdir -p "$DIR_HOST_PORTS/$lis_port"
   echo -n "$WSL_DISTRO_NAME" > "$DIR_HOST_PORTS/$lis_port/distro"
