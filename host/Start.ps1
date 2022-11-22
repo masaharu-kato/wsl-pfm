@@ -4,5 +4,4 @@ $ROOT_DIR = Resolve-Path "$(Split-path -parent $MyInvocation.MyCommand.Definitio
 
 New-Item "$ROOT_DIR\log" -ItemType Directory -Force | Out-Null
 
-Set-Location $ROOT_DIR
-Start-Process -FilePath powershell -ArgumentList @(".\host\WSL-PFM.ps1", ">", ".\log\log_$(Get-Date -UFormat "%Y%m%d_%H%M%S").txt") -WindowStyle Hidden
+Start-Process -FilePath powershell -ArgumentList @("$ROOT_DIR\host\WSL-PFM.ps1", ">", "$ROOT_DIR\log\log_$(Get-Date -UFormat "%Y%m%d_%H%M%S").txt") -WindowStyle Hidden

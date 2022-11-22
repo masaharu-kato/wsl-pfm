@@ -1,6 +1,7 @@
 #!/bin/bash
 
-DIR_WSL_PFM="/mnt/c/etc/wsl-pfm"
+ROOT_DIR=$(realpath "$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/..")
+DIR_WSL_PFM="$ROOT_DIR/data"
 
 mode=""
 arg_name=""

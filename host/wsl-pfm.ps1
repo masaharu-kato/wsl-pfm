@@ -1,6 +1,7 @@
 #Requires -RunAsAdministrator
 
-$DIR_WSL_PFM = "C:\etc\wsl-pfm"
+$ROOT_DIR = Resolve-Path "$(Split-path -parent $MyInvocation.MyCommand.Definition)\.."
+$DIR_WSL_PFM = "$ROOT_DIR\data"
 $DIR_DISTROS = "$DIR_WSL_PFM\distro"
 
 $FW_RULE_NAME = "WSL2_FW_Unlock"
