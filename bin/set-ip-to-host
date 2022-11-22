@@ -3,8 +3,14 @@
 ROOT_DIR=$(realpath "$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/..")
 DIR_WSL_PFM="$ROOT_DIR/data"
 
+if [[ ! $WSL_HOST_USER ]]; then
+  WSL_HOST_USER=$(powershell.exe '$env:UserName')
+  export WSL_HOST_USER
+fi
+
 DISTRO="$WSL_DISTRO_NAME"
-DIR_DISTRO="$DIR_WSL_PFM/distro/$DISTRO"
+DIR_USER="$DIR_WSL_PFM/user/$WSL_HOST_USER"
+DIR_DISTRO="$DIR_USER/distro/$DISTRO"
 
 mkdir -p "$DIR_WSL_PFM"
 mkdir -p "$DIR_DISTRO"

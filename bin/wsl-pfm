@@ -3,6 +3,11 @@
 ROOT_DIR=$(realpath "$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/..")
 DIR_WSL_PFM="$ROOT_DIR/data"
 
+if [[ ! $WSL_HOST_USER ]]; then
+  WSL_HOST_USER=$(powershell.exe '$env:UserName')
+  export WSL_HOST_USER
+fi
+
 mode=""
 arg_name=""
 con_port=""
@@ -63,7 +68,8 @@ fi
 DISTRO="$WSL_DISTRO_NAME"
 DIR_HOST="$DIR_WSL_PFM/host"
 DIR_HOST_PORTS="$DIR_HOST/ports"
-DIR_DISTRO="$DIR_WSL_PFM/distro/$DISTRO"
+DIR_USER="$DIR_WSL_PFM/user/$WSL_HOST_USER"
+DIR_DISTRO="$DIR_USER/distro/$DISTRO"
 DIR_DISTRO_PORTS="$DIR_DISTRO/ports"
 
 mkdir -p "$DIR_WSL_PFM"
@@ -110,9 +116,11 @@ delete_host_port() {
   _con_port=$2 # Connect port, optional
   # echo "delete_host_port $1 $2"
   if [[ -e "$DIR_HOST_PORTS/$_lis_port" ]]; then
+    _host_user=$(cat "$DIR_HOST_PORTS/$_lis_port/user")
     _host_distro=$(cat "$DIR_HOST_PORTS/$_lis_port/distro")
     _host_con_port=$(cat "$DIR_HOST_PORTS/$_lis_port/con-port")
-    if [[ $_host_distro == "$DISTRO" && ( -z $_con_port || $_host_con_port == "$_con_port") ]]; then
+    if [[ $_host_user == "$WSL_HOST_USER" && $_host_distro == "$DISTRO" && ( -z $_con_port || $_host_con_port == "$_con_port") ]]; then
+      rm "$DIR_HOST_PORTS/$_lis_port/user"
       rm "$DIR_HOST_PORTS/$_lis_port/distro"
       rm "$DIR_HOST_PORTS/$_lis_port/con-port"
       rm -d "$DIR_HOST_PORTS/$_lis_port"
@@ -153,20 +161,26 @@ if [[ $mode == "add" ]]; then
     fi
   fi
   if [[ -e "$DIR_HOST_PORTS/$lis_port" ]]; then
+    _host_user=$(cat "$DIR_HOST_PORTS/$lis_port/user")
     _host_distro=$(cat "$DIR_HOST_PORTS/$lis_port/distro")
     _host_con_port=$(cat "$DIR_HOST_PORTS/$lis_port/con-port")
-    if [[ $_host_distro == "$DISTRO" && $_host_con_port == "$con_port" ]]; then
+    if [[ $_host_user == "$WSL_HOST_USER" && $_host_distro == "$DISTRO" && $_host_con_port == "$con_port" ]]; then
       # echo "Notice: Host port $lis_port is already set to connect port $_host_con_port." 1>&2
       exit 0
     fi
-    if [[ "$_host_distro" == "$DISTRO" ]]; then
-      error_exit "Host port $lis_port already taken to connect port $_host_con_port" 11
+    if [[ "$_host_user" == "$WSL_HOST_USER" ]]; then
+      if [[ "$_host_distro" == "$DISTRO" ]]; then
+        error_exit "Host port $lis_port already taken to connect port $_host_con_port" 11
+      else
+        error_exit "Host port $lis_port already taken to connect port $_host_con_port from disro $_host_distro" 11
+      fi
     else
-      error_exit "Host port $lis_port already taken to connect port $_host_con_port from disro $_host_distro" 11
+      error_exit "Host port $lis_port already taken to connect port $_host_con_port from host user $_host_user" 11
     fi
   fi
   mkdir -p "$DIR_HOST_PORTS/$lis_port"
-  echo -n "$WSL_DISTRO_NAME" > "$DIR_HOST_PORTS/$lis_port/distro"
+  echo -n "$WSL_HOST_USER" > "$DIR_HOST_PORTS/$lis_port/user"
+  echo -n "$DISTRO" > "$DIR_HOST_PORTS/$lis_port/distro"
   echo -n "$con_port" > "$DIR_HOST_PORTS/$lis_port/con-port"
   mkdir -p "$DIR_DISTRO_PORTS/$con_port"
   echo -n "" > "$DIR_DISTRO_PORTS/$con_port/$lis_port"
