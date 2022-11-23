@@ -1,41 +1,39 @@
 #Requires -RunAsAdministrator
 
 $ROOT_DIR = Resolve-Path "$(Split-path -parent $MyInvocation.MyCommand.Definition)\.."
-$DIR_WSL_PFM = "$ROOT_DIR\data"
-$DIR_DISTROS = "$DIR_WSL_PFM\distro"
+$DATA_DIR = "$ROOT_DIR\data"
+$DISTROS_DIR = "$DATA_DIR\distros"
 
 $FW_RULE_NAME = "WSL2_FW_Unlock"
 
 $SYNC_SLEEP_SEC = 1
 
-Write-Output "-------------------------------------------- "
-Write-Output "    wsl-pfm: WSL Port Forwarding Manager "
-Write-Output "-------------------------------------------- "
+$global:ErrorActionPreference = 'Stop'
 
-Write-Output "Init ..."
-New-Item $DIR_WSL_PFM -ItemType Directory -Force | Out-Null  # mkdir -p
-New-Item $DIR_DISTROS -ItemType Directory -Force | Out-Null  # mkdir -p
-$distroList = $data = [System.Collections.Generic.List[string]]::new()
-foreach($path in Get-ChildItem $DIR_DISTROS) {
-    $distroList.Add($path.BaseName)
-}
+Write-Host "-------------------------------------------- " -ForegroundColor Cyan
+Write-Host "    WSL-PFM: WSL Port Forwarding Manager     " -ForegroundColor Cyan
+Write-Host "-------------------------------------------- " -ForegroundColor Cyan
 
+Write-Output "Start WSL-PFM on $(Get-Date -UFormat "%Y/%m/%d %H:%M:%S")"
 
 function setFirewall($port) {
-    $fw_name = "${FW_RULE_NAME}_$port"
-    $fw = Get-NetFirewallRule -DisplayName $fw_name 2> $null
+    $fwName = "${FW_RULE_NAME}_$port"
+    $fw = $null
+    try {
+        $fw = Get-NetFirewallRule -DisplayName $fwName 2> $null
+    } catch {}
     if(!$fw) {
-        $fw = New-NetFireWallRule -DisplayName $fw_name -Direction Inbound -LocalPort $port -Action Allow -Protocol TCP | Out-Null
-        $fw = Get-NetFirewallRule -DisplayName $fw_name 2> $null
+        New-NetFireWallRule -DisplayName $fwName -Direction Inbound -LocalPort $port -Action Allow -Protocol TCP | Out-Null
+        $fw = Get-NetFirewallRule -DisplayName $fwName 2> $null
         if(!$fw) { throw "Failed to set Firewall for port $port" }
     }
 }
 
 function unsetFirewall($port) {
-    $fw_name = "${FW_RULE_NAME}_$port"
-    $fw = Get-NetFirewallRule -DisplayName $fw_name 2> $null
+    $fwName = "${FW_RULE_NAME}_$port"
+    $fw = Get-NetFirewallRule -DisplayName $fwName 2> $null
     if($fw) {
-        Remove-NetFirewallRule -DisplayName $fw_name | Out-Null
+        Remove-NetFirewallRule -DisplayName $fwName | Out-Null
     }
 }
 
@@ -68,35 +66,36 @@ class PortForwardData {
 function getForwardedPorts() {
     $res = netsh interface portproxy show v4tov4
     $is_main = 0
-    $data = [System.Collections.Generic.List[PortForwardData]]::new()
+    $portFwds = [System.Collections.Generic.List[PortForwardData]]::new()
     foreach($line in $res) {
         if($is_main) {
             $values = $line -split "\s+"
-            $cdata = [PortForwardData]::new()
-            $cdata.lisAddr = $values[0]
-            $cdata.lisPort = $values[1]
-            $cdata.conAddr = $values[2]
-            $cdata.conPort = $values[3]
-            $data.Add($cdata)
+            $portFwd = [PortForwardData]::new()
+            $portFwd.lisAddr = $values[0]
+            $portFwd.lisPort = $values[1]
+            $portFwd.conAddr = $values[2]
+            $portFwd.conPort = $values[3]
+            $portFwds.Add($portFwd)
         }
         if($line.StartsWith("-")) { $is_main = 1 }
     }
-    return $data
+    return $portFwds
 }
 
-function getPortForwardRequests($distro) {
-    $data = [System.Collections.Generic.List[PortForwardData]]::new()
-    if(Test-Path "$DIR_DISTROS/$distro/ports") {
-        foreach($con_port_path in Get-ChildItem "$DIR_DISTROS/$distro/ports/*") {
-            foreach($lis_port_path in Get-ChildItem "$con_port_path/*") {
-                $cdata = [PortForwardData]::new()
-                $cdata.lisPort = $lis_port_path.BaseName
-                $cdata.conport = $con_port_path.BaseName
-                $data.Add($cdata)
+function getPortForwardRequests([string]$distro) {
+    $portFwds = [System.Collections.Generic.List[PortForwardData]]::new()
+    $portsDir = "$DISTROS_DIR/$distro/ports"
+    if(Test-Path "$portsDir") {
+        foreach($conPortPath in Get-ChildItem "$portsDir/*") {
+            foreach($lisPortPath in Get-ChildItem "$conPortPath/*") {
+                $portFwd = [PortForwardData]::new()
+                $portFwd.lisPort = $lisPortPath.BaseName
+                $portFwd.conport = $conPortPath.BaseName
+                $portFwds.Add($portFwd)
             }
         }
     }
-    return $data
+    return $portFwds
 }
 
 
@@ -106,17 +105,23 @@ function GetContentIfExists($path) {
 }
 
 
-function refreshDistroPortForwards($distro) {
-    $old_ip = GetContentIfExists("$DIR_DISTROS/$distro/forwarded-ip")
-    $new_ip = GetContentIfExists("$DIR_DISTROS/$distro/ip")
+function refreshDistroPortForwards([string]$distro) {
+    
+    Write-Output "[$distro] Refresh port forwards ..."
+    $changed = $false
 
-    if(!$new_ip) { throw "IP Address is not set." }
+    $distroDir = "$DISTROS_DIR/$distro"
+    $oldIP = GetContentIfExists("$distroDir/forwarded-ip")
+    $newIP = GetContentIfExists("$distroDir/ip")
+
+    if(!$newIP) { throw "IP Address is not set." }
+
     
     # Remove the current port forwardings to the forwarded (old) ip address.
     $old_forwarded_ports = @{} # conPort -> lisPort
-    if($old_ip) {
-        $_old_port_fwds = getForwardedPorts | Where-Object {$_.conAddr -eq $old_ip}
-        foreach($pf in $_old_port_fwds) { $old_forwarded_ports[$pf.conPort] = $pf.lisPort }
+    if($oldIP) {
+        $old_port_fwds = getForwardedPorts | Where-Object {$_.conAddr -eq $oldIP}
+        foreach($pf in $old_port_fwds) { $old_forwarded_ports[$pf.conPort] = $pf.lisPort }
     }
 
     # Refresh ports
@@ -126,9 +131,9 @@ function refreshDistroPortForwards($distro) {
         $conPort = $pf.conport
 
         # If the IP address has changed, or the target is a new port 
-        if(($old_ip -ne $new_ip) -or (!$old_forwarded_ports[$conPort])) {
+        if(($oldIP -ne $newIP) -or (!$old_forwarded_ports[$conPort])) {
 
-            Write-Output "[$distro]   Setting port forwarding *:$lisPort -> ${new_ip}:$conPort ..."
+            Write-Output "[$distro]   Setting port forwarding *:$lisPort -> ${_newIP}:$conPort ..."
             
             try {
                 # If there is a existing port forwarding, delete it
@@ -138,7 +143,7 @@ function refreshDistroPortForwards($distro) {
                 }
 
                 # Add a new port forwarding
-                $res = netsh interface portproxy add v4tov4 listenport=$lisPort listenaddress=* connectport=$conPort connectaddress=$new_ip
+                $res = netsh interface portproxy add v4tov4 listenport=$lisPort listenaddress=* connectport=$conPort connectaddress=$newIP
                 if($res -match "\S") { throw "Failed to add v4tov4: $($res.trim())" }
 
                 # Set a Firewall
@@ -149,6 +154,7 @@ function refreshDistroPortForwards($distro) {
             } catch {
                 Write-Output "[$distro]    -> Failed: $_"
             }
+            $changed = $true
             
         }
         $old_forwarded_ports[$conPort] = $null  # Still forward this port
@@ -159,7 +165,7 @@ function refreshDistroPortForwards($distro) {
         # Non-null values of $old_forwarded_ports are unused ports.
         $lisPort = $old_forwarded_ports[$conPort]
         if($lisPort) {
-            Write-Output "[$distro]   Delete port forwarding  *:$lisPort -> ${old_ip}:$conPort"
+            Write-Output "[$distro]   Delete port forwarding  *:$lisPort -> ${_oldIP}:$conPort"
             
             try {
                 # Delete the port forwarding
@@ -174,51 +180,82 @@ function refreshDistroPortForwards($distro) {
             } catch {
                 Write-Output "[$distro]    -> Failed: $_"
             }
+            $changed = $true
         }
     }
 
     # Output new IP as forwarded IP
-    $new_ip | Out-File "$DIR_DISTROS/$distro/forwarded-ip" -NoNewline -Encoding utf8
+    $newIP | Out-File "$distroDir/forwarded-ip" -NoNewline -Encoding utf8
+
+    if($changed) {
+        Write-Output "[$distro]  -> Done."
+    }else{
+        Write-Output "[$distro]  -> Nothing to do."
+    }
 }
 
 
-$DIR_DISTROS_FOR_REGEX = $DIR_DISTROS.Replace("\", "\\")
-$REGEX_DISTRO_PATH = "^$DIR_DISTROS_FOR_REGEX\\(?<distro>[^\\]+).*$"
-# Write-Output "REGEX_DISTRO_PATH: $REGEX_DISTRO_PATH"
-
-function getDistroFromPath($path) {
-    if($path -match $REGEX_DISTRO_PATH) { return $Matches.distro }
-    return ""
+function prepareDir($path) {
+    # Prepare a directory (make a directory if not exists)
+    New-Item "$path" -ItemType Directory -Force | Out-Null
 }
 
 # Main
 
-# Watch files
+# Init: Get host users and WSL distros
+Write-Output "Init ..."
+prepareDir "$DISTROS_DIR"
 
-$distroRefreshRequested = @{}
-foreach($distro in $distroList) {
-    $distroRefreshRequested[$distro] = $false
+$gDistroList = [System.Collections.Generic.List[string]]::new()
+
+foreach($user in Get-ChildItem $DISTROS_DIR) {
+    foreach($distroName in Get-ChildItem "$DISTROS_DIR\$user") {
+        $distro = "$user\$distroName"
+        $gDistroList.Add($distro)
+        Write-Output "Detected: $distro"
+    }
 }
 
-$distroRefreshNeeded = @{}
+if(!$gDistroList.Count) {
+    Write-Output "Warning: No WSL distros found."
+    Write-Output "         To detect, run the script 'bin\set-ip-to-host' on the WSL distro."
+}
+
+
+# Watch files
+
+$gDistroRefreshRequested = @{}
+foreach($distro in $gDistroList) {
+    $gDistroRefreshRequested[$distro] = $false
+}
+
+$gDistroRefreshNeeded = @{}
+
+$REGEX_DISTROS_DIR = "^$($DISTROS_DIR.Replace("\", "\\"))\\(?<user>[^\\]+)\\(?<distro>[^\\]+).*$"
 
 function global:onFileChanged($path) {
-    $distro = getDistroFromPath $path
+    if(!($path -match $REGEX_DISTROS_DIR)) { return }
+    $distro = "$($Matches.user)\$($Matches.distro)"
+
     if($distro) {
-        if(!($distroList -contains $distro)) {
+        if(!($gDistroList -contains $distro)) {
             Write-Output "New distro detected: $distro"
-            $distroList.Add($distro)
-            $distroRefreshNeeded[$distro] = $false
+            $gDistroList.Add($distro)
+            $gDistroRefreshNeeded[$distro] = $false
         }
-        $distroRefreshRequested[$distro] = $true
+        $gDistroRefreshRequested[$distro] = $true
         Write-Output "[$distro] Detected file change: $path"
     }
 }
 
 $action = {
     $path = $Event.SourceEventArgs.FullPath
+
+    # Show the details of event:
     # $changeType = $Event.SourceEventArgs.ChangeType
     # Write-Output "$(Get-Date)`t$changeType`t$path"
+
+    # If $path match **\ip or **\ports\*\*
     if(($path -match "(\\ip|\\ports\\\d+\\\d+)")) {
         try {
             onFileChanged $path
@@ -233,7 +270,7 @@ $action = {
 Write-Output "Start file watch jobs ..."
 
 $watcher = New-Object System.IO.FileSystemWatcher
-$watcher.Path = "$DIR_DISTROS"
+$watcher.Path = "$DISTROS_DIR"
 $watcher.Filter = "*"
 $watcher.IncludeSubdirectories = $true
 $watcher.EnableRaisingEvents   = $true
@@ -245,37 +282,40 @@ $obj_events = @(
     (Register-ObjectEvent $watcher "Renamed" -Action $action)
 )
 
-foreach($distro in $distroList) {
-    $distroRefreshNeeded[$distro] = $true
+foreach($distros in $gDistroList) {
+    foreach($distro in $distros) {
+        $gDistroRefreshNeeded[$distro] = $true
+    }
 }
 
-Write-Output "Watching files ..."
+Write-Output "Watching files on '$DISTROS_DIR'..."
 try {
     while ($true) {
-        foreach($distro in $distroList) {
-            if($distroRefreshRequested[$distro]) {
-                $distroRefreshNeeded[$distro] = $true
-                $distroRefreshRequested[$distro] = $false
+        foreach($distro in $gDistroList) {
+            if($gDistroRefreshRequested[$distro]) {
+                $gDistroRefreshNeeded[$distro] = $true
+                $gDistroRefreshRequested[$distro] = $false
             }
             else{
-                if($distroRefreshNeeded[$distro]) {
-                    Write-Output "[$distro] Refresh port forwards ..."
+                if($gDistroRefreshNeeded[$distro]) {
                     try {
                         refreshDistroPortForwards $distro
-                        Write-Output "[$distro]  -> Done."
                     } catch {
                         Write-Output "[$distro]  -> Failed: $_"
                     }
                 }
-                $distroRefreshNeeded[$distro] = $false
+                $gDistroRefreshNeeded[$distro] = $false
             }
         }
         Start-Sleep $SYNC_SLEEP_SEC
     }
+} catch {
+    Write-Output "An Error has occured."
+    Write-Output $_
 } finally {
-    Write-Output "Removing file watch jobs ..."
+    Write-Host "Removing file watch jobs ..." -ForegroundColor DarkCyan
     foreach($event in $obj_events) {
         Remove-Job -Id $event.Id -Force
     }
-    Write-Output "exit"
 }
+Write-Output "exit"

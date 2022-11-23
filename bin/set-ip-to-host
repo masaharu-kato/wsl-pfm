@@ -1,25 +1,25 @@
 #!/bin/bash
 
 ROOT_DIR=$(realpath "$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/..")
-DIR_WSL_PFM="$ROOT_DIR/data"
+DATA_DIR="$ROOT_DIR/data"
+DISTROS_DIR="$DATA_DIR/distros"
 
 if [[ ! $WSL_HOST_USER ]]; then
-  WSL_HOST_USER=$(powershell.exe '$env:UserName')
+  # Get the User name of host (Windows), removing the last CR character.
+  WSL_HOST_USER=$(powershell.exe '$env:UserName' | sed 's/\r$//')
   export WSL_HOST_USER
 fi
 
 DISTRO="$WSL_DISTRO_NAME"
-DIR_USER="$DIR_WSL_PFM/user/$WSL_HOST_USER"
-DIR_DISTRO="$DIR_USER/distro/$DISTRO"
+THIS_DISTRO_DIR="$DISTROS_DIR/$WSL_HOST_USER/$DISTRO"
 
-mkdir -p "$DIR_WSL_PFM"
-mkdir -p "$DIR_DISTRO"
+mkdir -p "$THIS_DISTRO_DIR"
 
 c_ip=$(ip a show eth0 | grep -w -m1 inet | awk '{print $2}' | awk -F'/' '{print $1}')
 saved_ip=""
-if [[ -e "$DIR_DISTRO/ip" ]]; then
-    saved_ip=$(cat "$DIR_DISTRO/ip")
+if [[ -e "$THIS_DISTRO_DIR/ip" ]]; then
+    saved_ip=$(cat "$THIS_DISTRO_DIR/ip")
 fi
 if [[ "$c_ip" != "$saved_ip" ]]; then
-    echo -n "$c_ip" > "$DIR_DISTRO/ip"
+    echo -n "$c_ip" > "$THIS_DISTRO_DIR/ip"
 fi
