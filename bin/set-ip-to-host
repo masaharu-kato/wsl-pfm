@@ -4,6 +4,11 @@ ROOT_DIR=$(realpath "$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null
 DIR_WSL_PFM="$ROOT_DIR/data"
 
 DISTRO="$WSL_DISTRO_NAME"
+if [[ -z "$DISTRO" ]]; then
+    echo "Error: WSL Distro Name is not set." 1>&2
+    exit 1
+fi
+
 DIR_DISTRO="$DIR_WSL_PFM/distro/$DISTRO"
 
 mkdir -p "$DIR_WSL_PFM"
