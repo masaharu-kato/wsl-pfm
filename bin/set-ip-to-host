@@ -21,7 +21,7 @@ done
 mkdir -p "$DIR_WSL_PFM"
 mkdir -p "$DIR_DISTRO"
 
-c_ip=$(ip a show eth0 | grep -w -m1 inet | awk '{print $2}' | awk -F'/' '{print $1}')
+c_ip=$("$ROOT_DIR/bin/get-IP")
 if [[ -z "$c_ip" ]]; then
     echo "Error: Failed to get the current IP address." 1>&2
     exit 1
