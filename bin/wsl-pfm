@@ -26,6 +26,8 @@ for arg; do
     f_set_ip=1
   elif [[ $arg == "--no-ip-set" ]]; then
     f_set_ip=0
+  elif [[ $arg == "--skip-host-check" ]]; then
+    f_skip_host_check=0
   elif [[ $mode == "add" || $mode == "delete" ]]; then
     if [[ $arg == "from" || $arg == "-lis" || $arg == "--listen" ]]; then
       arg_name="lis"
@@ -87,6 +89,26 @@ mkdir -p "$DIR_HOST_PORTS"
 mkdir -p "$DIR_DISTRO"
 mkdir -p "$DIR_DISTRO_PORTS"
 
+# Check the host program is currently running
+
+check_host_program() {
+    pushd "$ROOT_DIR" > /dev/null || return 255
+    
+    if ! powershell.exe host/Status.ps1 > /dev/null; then
+        return 1
+    fi
+
+    popd > /dev/null || return 255
+    return 0
+}
+
+if [[ ! $f_skip_host_check ]]; then
+    if ! check_host_program; then
+        error_exit "WSL Port Forwarding Manager program is not running on Host." 100
+    fi
+fi
+
+# Set IP Address to host
 if [[ $f_set_ip ]]; then
   if [[ $f_set_ip == 1 ]]; then
     $SET_IP_TO_HOST -v
