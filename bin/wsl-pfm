@@ -67,6 +67,7 @@ DIR_HOST="$DIR_WSL_PFM/host"
 DIR_HOST_PORTS="$DIR_HOST/ports"
 DIR_DISTRO="$DIR_WSL_PFM/distro/$DISTRO"
 DIR_DISTRO_PORTS="$DIR_DISTRO/ports"
+SET_IP_TO_HOST="$ROOT_DIR/bin/set-ip-to-host"
 
 mkdir -p "$DIR_WSL_PFM"
 mkdir -p "$DIR_HOST"
@@ -75,7 +76,11 @@ mkdir -p "$DIR_DISTRO"
 mkdir -p "$DIR_DISTRO_PORTS"
 
 if [[ $f_set_ip ]]; then
-  "$ROOT_DIR/bin/set-ip-to-host"
+  if [[ $f_set_ip == 1 ]]; then
+    $SET_IP_TO_HOST -v
+  else
+    $SET_IP_TO_HOST
+  fi
 fi
 
 delete_port() {
