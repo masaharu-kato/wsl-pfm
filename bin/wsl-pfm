@@ -20,11 +20,14 @@ invalid_argument() {
 arg_name="con"
 f_set_ip=-1
 for arg; do
+  if [[ $arg == "--help" ]]; then
+    f_help=1
+    break
   elif [[ $arg == "status" ]]; then
     mode="status"
   elif [[ -z $mode && ($arg == "add" || $arg == "delete" || $arg == "show") ]]; then
     mode=$arg
-  elif [[ $arg == "--set-ip" ]]; then
+  elif [[ $arg == "set-ip" ]]; then
     f_set_ip=1
   elif [[ $arg == "--no-ip-set" ]]; then
     f_set_ip=0
@@ -76,6 +79,16 @@ done
 # if [[ ! ($mode == "add" || $mode == "delete" || $mode == "show") ]]; then
 #   invalid_argument "Invalid Mode: $mode"
 # fi
+if [[ $# == 0 ]]; then
+  echo "wsl-pfm: missing arguments."
+  echo "try 'wsl-pfm --help' for more information."
+  exit 0
+fi
+
+if [[ $f_help ]]; then
+  cat "$ROOT_DIR/bin/help.txt"
+  exit 0
+fi
 
 DISTRO="$WSL_DISTRO_NAME"
 DIR_HOST="$DIR_WSL_PFM/host"

@@ -1,0 +1,59 @@
+wsl-pfm: WSL Port Forwarding Manager
+
+Usage:
+  Note: the host program must be running on the host (Windows).
+
+  Check the host program status:
+    $ wsl-pfm status
+
+  Add port forwarding:
+    $ wsl-pfm add [[from|-lis|--listen] PORT_NUMBER] [[to|-con|--connect] PORT_NUMBER]]
+
+  Delete port forwarding:
+    $ wsl-pfm delete [[from|-lis|--listen] PORT_NUMBER] [[to|-con|--connect] PORT_NUMBER]]
+
+  Show informations:
+    $ wsl-pfm show [ip] [ports] [host]
+
+  Set IP address manually:
+  (Note: IP address is set every time you run command unless `--no-ip-set` option is specified.)
+    $ wsl-pfm set-ip
+
+Options:
+  --help
+    Show this help
+    
+  --no-set-ip
+    Skip setting of IP address to host
+
+  --skip-host-check
+    Skip checking of host program status
+
+Examples:
+  Add port forwarding:
+    $ wsl-pfm add 8080
+      Add a new port forwarding: Host :8080 -> WSL :8080
+
+    $ wsl-pfm add from 8080 to 80
+    $ wsl-pfm add -lis 8080 -con 80
+    $ wsl-pfm add --listen 8080 --connect 80
+      Add a new port forwarding: Host :8080 -> WSL :80
+
+  Delete port forwarding:
+    $ wsl-pfm delete 8080
+      Delete a new port forwarding: Host :8080 -> WSL :8080
+
+    $ wsl-pfm delete from 8080 to 80
+    $ wsl-pfm delete -lis 8080 -con 80
+    $ wsl-pfm delete --listen 8080 --connect 80
+      Delete a new port forwarding: Host :8080 -> WSL :80
+
+  Show informations:
+    $ wsl-pfm show ip ports
+      Show informations about IP address and forwarded ports
+
+    $ wsl-pfm show
+      Show all informations
+
+  Set IP address to host manually:    
+    $ wsl-pfm set-ip
