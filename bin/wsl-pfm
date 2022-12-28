@@ -18,9 +18,14 @@ invalid_argument() {
 }
 
 arg_name="con"
+f_set_ip=-1
 for arg; do
   if [[ -z $mode && ($arg == "add" || $arg == "delete" || $arg == "show") ]]; then
     mode=$arg
+  elif [[ $arg == "--set-ip" ]]; then
+    f_set_ip=1
+  elif [[ $arg == "--no-ip-set" ]]; then
+    f_set_ip=0
   else
     if [[ $arg == "from" || $arg == "-lis" || $arg == "--listen" ]]; then
       arg_name="lis"
@@ -53,12 +58,9 @@ for arg; do
   fi
 done
 
-if [[ -z $mode ]]; then
-  mode="add"
-fi
-if [[ ! ($mode == "add" || $mode == "delete" || $mode == "show") ]]; then
-  invalid_argument "Invalid Mode: $mode"
-fi
+# if [[ ! ($mode == "add" || $mode == "delete" || $mode == "show") ]]; then
+#   invalid_argument "Invalid Mode: $mode"
+# fi
 
 DISTRO="$WSL_DISTRO_NAME"
 DIR_HOST="$DIR_WSL_PFM/host"
@@ -72,6 +74,9 @@ mkdir -p "$DIR_HOST_PORTS"
 mkdir -p "$DIR_DISTRO"
 mkdir -p "$DIR_DISTRO_PORTS"
 
+if [[ $f_set_ip ]]; then
+  "$ROOT_DIR/bin/set-ip-to-host"
+fi
 
 delete_port() {
   # At least one of _lis_port or _con_port is required.
@@ -138,7 +143,11 @@ show_ports() {
   done
 }
 
-if [[ $mode == "add" ]]; then
+if [[ $mode == "" ]]; then
+  if [[ $f_set_ip != 1 ]]; then
+    invalid_argument "Mode is not specified."
+  fi
+elif [[ $mode == "add" ]]; then
   if [[ -z $con_port ]]; then
     if [[ -z $lis_port ]]; then
       # both lis-port and con-port are not specified
