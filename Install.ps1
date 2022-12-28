@@ -19,5 +19,5 @@ if (!$noStart) {
     Write-Host "Successfully started WSL Port Forwarding Manager." -ForegroundColor Green
 }
 else {
-    Write-Host "Restart a host computer to start WSL Port Forwarding Manager." -ForegroundColor Yellow
+    Write-Host "Reboot the host computer to start WSL Port Forwarding Manager." -ForegroundColor Yellow
 }
