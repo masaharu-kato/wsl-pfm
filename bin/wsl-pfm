@@ -26,7 +26,7 @@ for arg; do
     f_set_ip=1
   elif [[ $arg == "--no-ip-set" ]]; then
     f_set_ip=0
-  else
+  elif [[ $mode == "add" || $mode == "delete" ]]; then
     if [[ $arg == "from" || $arg == "-lis" || $arg == "--listen" ]]; then
       arg_name="lis"
     elif [[ $arg == "to" || $arg == "-con" || $arg == "--connect" ]]; then
@@ -55,6 +55,17 @@ for arg; do
       fi
       arg_name=""
     fi
+  elif [[ $mode == "show" ]]; then
+    if [[ $arg == "ports" ]]; then
+      f_show_options=1
+      f_show_ports=1
+    elif [[ $arg == "ip" ]]; then
+      f_show_options=1
+      f_show_ip=1
+    elif [[ $arg == "host" ]]; then
+      f_show_options=1
+      f_show_host=1
+    fi
   fi
 done
 
@@ -68,6 +79,7 @@ DIR_HOST_PORTS="$DIR_HOST/ports"
 DIR_DISTRO="$DIR_WSL_PFM/distro/$DISTRO"
 DIR_DISTRO_PORTS="$DIR_DISTRO/ports"
 SET_IP_TO_HOST="$ROOT_DIR/bin/set-ip-to-host"
+GET_IP="$ROOT_DIR/bin/get-ip"
 
 mkdir -p "$DIR_WSL_PFM"
 mkdir -p "$DIR_HOST"
@@ -204,7 +216,15 @@ elif [[ $mode == "delete" ]]; then
   fi
 
 elif [[ $mode == "show" ]]; then
-  show_ports "$lis_port" "$con_port"
-
+  if [[ -z $f_show_options || -n $f_show_ip ]]; then
+    ip=$($GET_IP)
+    echo "Current IP Address: $ip"
+  fi
+  if [[ -z $f_show_options || -n $f_show_ports ]]; then
+    show_ports "$lis_port" "$con_port"
+  fi
+  if [[ -z $f_show_options || -n $f_show_host ]]; then
+    netsh.exe interface portproxy show v4tov4
+  fi
 fi
 exit 0
