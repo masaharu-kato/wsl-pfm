@@ -243,6 +243,7 @@ elif [[ $mode == "show" ]]; then
     echo "Current IP Address: $ip"
   fi
   if [[ -z $f_show_options || -n $f_show_ports ]]; then
+    echo "List of forwarded ports:"
     show_ports "$lis_port" "$con_port"
   fi
   if [[ -z $f_show_options || -n $f_show_host ]]; then
