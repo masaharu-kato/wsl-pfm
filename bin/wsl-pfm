@@ -20,7 +20,9 @@ invalid_argument() {
 arg_name="con"
 f_set_ip=-1
 for arg; do
-  if [[ -z $mode && ($arg == "add" || $arg == "delete" || $arg == "show") ]]; then
+  elif [[ $arg == "status" ]]; then
+    mode="status"
+  elif [[ -z $mode && ($arg == "add" || $arg == "delete" || $arg == "show") ]]; then
     mode=$arg
   elif [[ $arg == "--set-ip" ]]; then
     f_set_ip=1
@@ -92,20 +94,24 @@ mkdir -p "$DIR_DISTRO_PORTS"
 # Check the host program is currently running
 
 check_host_program() {
-    pushd "$ROOT_DIR" > /dev/null || return 255
-    
-    if ! powershell.exe host/Status.ps1 > /dev/null; then
-        return 1
-    fi
+  pushd "$ROOT_DIR" > /dev/null || return 255
+  
+  if ! powershell.exe host/Status.ps1 > /dev/null; then
+    return 1
+  fi
 
-    popd > /dev/null || return 255
-    return 0
+  popd > /dev/null || return 255
+  return 0
 }
 
 if [[ ! $f_skip_host_check ]]; then
-    if ! check_host_program; then
-        error_exit "WSL Port Forwarding Manager program is not running on Host." 100
-    fi
+  if ! check_host_program; then
+    error_exit "WSL Port Forwarding Manager program is not running on Host." 100
+  fi
+fi
+
+if [[ $mode == "status" ]]; then
+  echo "OK: WSL Port Forwarding Manager program is running on Host."
 fi
 
 # Set IP Address to host
