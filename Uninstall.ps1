@@ -1,17 +1,20 @@
 #Requires -RunAsAdministrator
-
 Param(
+    [alias("d")][string]$Distro,
     [string]$TaskName = "Start-WSL-PFM"
 )
 
-$global:ErrorActionPreference = 'Stop'
-try {
-    # Unregister
-    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
- 
-    Write-Host "Successfully Uninstalled." -ForegroundColor Green
+$ROOT_DIR = Resolve-Path "$(Split-path -parent $MyInvocation.MyCommand.Definition)"
 
-} catch {
-    Write-Host "Failed to install." -ForegroundColor Red
-    Write-Host $_ -ForegroundColor Magenta
+# Stop the Scheduled Task (if the task exists)
+try {
+    Stop-ScheduledTask -TaskName $TaskName | Out-Null
+    Write-Host "Stopped Scheduled Task." -ForegroundColor Yellow
 }
+catch {}
+
+# Unregister the Scheduled Task
+. $ROOT_DIR/host/Unregister-ScheduledTask.ps1
+
+# Uninstall on WSL
+. $ROOT_DIR/host/Uninstall-on-WSL.ps1 -d $Distro

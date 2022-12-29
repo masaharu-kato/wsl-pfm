@@ -1,0 +1,2 @@
+#!/bin/bash
+ip a show eth0 | grep -w -m1 inet | awk '{print $2}' | awk -F'/' '{print $1}'

@@ -4,16 +4,42 @@ ROOT_DIR=$(realpath "$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null
 DIR_WSL_PFM="$ROOT_DIR/data"
 
 DISTRO="$WSL_DISTRO_NAME"
+if [[ -z "$DISTRO" ]]; then
+    echo "Error: WSL Distro Name is not set." 1>&2
+    exit 1
+fi
+
 DIR_DISTRO="$DIR_WSL_PFM/distro/$DISTRO"
+
+f_verbose=0
+for arg; do
+    if [[ $arg == "-v" || $arg == "--verbose" ]]; then
+        f_verbose=1
+    fi
+done
 
 mkdir -p "$DIR_WSL_PFM"
 mkdir -p "$DIR_DISTRO"
 
-c_ip=$(ip a show eth0 | grep -w -m1 inet | awk '{print $2}' | awk -F'/' '{print $1}')
+c_ip=$("$ROOT_DIR/bin/get-IP")
+if [[ -z "$c_ip" ]]; then
+    echo "Error: Failed to get the current IP address." 1>&2
+    exit 1
+fi
+
 saved_ip=""
 if [[ -e "$DIR_DISTRO/ip" ]]; then
     saved_ip=$(cat "$DIR_DISTRO/ip")
 fi
 if [[ "$c_ip" != "$saved_ip" ]]; then
     echo -n "$c_ip" > "$DIR_DISTRO/ip"
+    if [[ $f_verbose != 0 ]]; then
+        echo "Refreshed IP address to '$c_ip'."
+    fi
+else
+    if [[ $f_verbose != 0 ]]; then
+        echo "No need to refresh the current IP address ('$c_ip')."
+    fi
 fi
+
+exit 0

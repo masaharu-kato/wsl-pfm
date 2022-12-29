@@ -18,10 +18,22 @@ invalid_argument() {
 }
 
 arg_name="con"
+f_set_ip=-1
 for arg; do
-  if [[ -z $mode && ($arg == "add" || $arg == "delete" || $arg == "show") ]]; then
+  if [[ $arg == "--help" ]]; then
+    f_help=1
+    break
+  elif [[ $arg == "status" ]]; then
+    mode="status"
+  elif [[ -z $mode && ($arg == "add" || $arg == "delete" || $arg == "show") ]]; then
     mode=$arg
-  else
+  elif [[ $arg == "set-ip" ]]; then
+    f_set_ip=1
+  elif [[ $arg == "--no-ip-set" ]]; then
+    f_set_ip=0
+  elif [[ $arg == "--skip-host-check" ]]; then
+    f_skip_host_check=0
+  elif [[ $mode == "add" || $mode == "delete" ]]; then
     if [[ $arg == "from" || $arg == "-lis" || $arg == "--listen" ]]; then
       arg_name="lis"
     elif [[ $arg == "to" || $arg == "-con" || $arg == "--connect" ]]; then
@@ -50,14 +62,32 @@ for arg; do
       fi
       arg_name=""
     fi
+  elif [[ $mode == "show" ]]; then
+    if [[ $arg == "ports" ]]; then
+      f_show_options=1
+      f_show_ports=1
+    elif [[ $arg == "ip" ]]; then
+      f_show_options=1
+      f_show_ip=1
+    elif [[ $arg == "host" ]]; then
+      f_show_options=1
+      f_show_host=1
+    fi
   fi
 done
 
-if [[ -z $mode ]]; then
-  mode="add"
+# if [[ ! ($mode == "add" || $mode == "delete" || $mode == "show") ]]; then
+#   invalid_argument "Invalid Mode: $mode"
+# fi
+if [[ $# == 0 ]]; then
+  echo "wsl-pfm: missing arguments."
+  echo "try 'wsl-pfm --help' for more information."
+  exit 0
 fi
-if [[ ! ($mode == "add" || $mode == "delete" || $mode == "show") ]]; then
-  invalid_argument "Invalid Mode: $mode"
+
+if [[ $f_help ]]; then
+  cat "$ROOT_DIR/bin/help.txt"
+  exit 0
 fi
 
 DISTRO="$WSL_DISTRO_NAME"
@@ -65,6 +95,8 @@ DIR_HOST="$DIR_WSL_PFM/host"
 DIR_HOST_PORTS="$DIR_HOST/ports"
 DIR_DISTRO="$DIR_WSL_PFM/distro/$DISTRO"
 DIR_DISTRO_PORTS="$DIR_DISTRO/ports"
+SET_IP_TO_HOST="$ROOT_DIR/bin/set-ip-to-host"
+GET_IP="$ROOT_DIR/bin/get-ip"
 
 mkdir -p "$DIR_WSL_PFM"
 mkdir -p "$DIR_HOST"
@@ -72,6 +104,37 @@ mkdir -p "$DIR_HOST_PORTS"
 mkdir -p "$DIR_DISTRO"
 mkdir -p "$DIR_DISTRO_PORTS"
 
+# Check the host program is currently running
+
+check_host_program() {
+  pushd "$ROOT_DIR" > /dev/null || return 255
+  
+  if ! powershell.exe host/Status.ps1 > /dev/null; then
+    return 1
+  fi
+
+  popd > /dev/null || return 255
+  return 0
+}
+
+if [[ ! $f_skip_host_check ]]; then
+  if ! check_host_program; then
+    error_exit "WSL Port Forwarding Manager program is not running on Host." 100
+  fi
+fi
+
+if [[ $mode == "status" ]]; then
+  echo "OK: WSL Port Forwarding Manager program is running on Host."
+fi
+
+# Set IP Address to host
+if [[ $f_set_ip ]]; then
+  if [[ $f_set_ip == 1 ]]; then
+    $SET_IP_TO_HOST -v
+  else
+    $SET_IP_TO_HOST
+  fi
+fi
 
 delete_port() {
   # At least one of _lis_port or _con_port is required.
@@ -138,7 +201,11 @@ show_ports() {
   done
 }
 
-if [[ $mode == "add" ]]; then
+if [[ $mode == "" ]]; then
+  if [[ $f_set_ip != 1 ]]; then
+    invalid_argument "Mode is not specified."
+  fi
+elif [[ $mode == "add" ]]; then
   if [[ -z $con_port ]]; then
     if [[ -z $lis_port ]]; then
       # both lis-port and con-port are not specified
@@ -190,7 +257,16 @@ elif [[ $mode == "delete" ]]; then
   fi
 
 elif [[ $mode == "show" ]]; then
-  show_ports "$lis_port" "$con_port"
-
+  if [[ -z $f_show_options || -n $f_show_ip ]]; then
+    ip=$($GET_IP)
+    echo "Current IP Address: $ip"
+  fi
+  if [[ -z $f_show_options || -n $f_show_ports ]]; then
+    echo "List of forwarded ports:"
+    show_ports "$lis_port" "$con_port"
+  fi
+  if [[ -z $f_show_options || -n $f_show_host ]]; then
+    netsh.exe interface portproxy show v4tov4
+  fi
 fi
 exit 0
