@@ -1,4 +1,4 @@
-wsl-pfm: WSL Port Forwarding Manager
+wsl-pfm: WSL Port Forwarding Manager (Ver 0.2.0)
 
 Usage:
   Note: the host program must be running on the host (Windows).

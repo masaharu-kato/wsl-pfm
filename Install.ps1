@@ -7,6 +7,8 @@ Param(
 
 $ROOT_DIR = Resolve-Path "$(Split-path -parent $MyInvocation.MyCommand.Definition)"
 
+Write-Host "WSL Port Forwarding Manager Installer (Ver 0.2.0)"
+
 # Register a Scheduled Task
 . $ROOT_DIR/host/Register-ScheduledTask.ps1 -TaskName $TaskName
 

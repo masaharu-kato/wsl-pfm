@@ -9,9 +9,9 @@ $FW_RULE_NAME = "WSL2_FW_Unlock"
 $SYNC_SLEEP_SEC = 1
 
 # Start initialization
-Write-Output "-------------------------------------------- "
-Write-Output "    wsl-pfm: WSL Port Forwarding Manager "
-Write-Output "-------------------------------------------- "
+Write-Output "-------------------------------------------------------- "
+Write-Output "    wsl-pfm: WSL Port Forwarding Manager (Ver 0.2.0)"
+Write-Output "-------------------------------------------------------- "
 
 Write-Output "Init ..."
 New-Item $DIR_WSL_PFM -ItemType Directory -Force | Out-Null  # mkdir -p
